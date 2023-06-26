@@ -88,16 +88,22 @@ class Preprocessor:
 
         return Batch(res_imgs, res_gt_texts, batch.batch_size)
 
+
+
     def process_img(self, img: np.ndarray) -> np.ndarray:
         """Resize to target size, apply data augmentation."""
 
         # there are damaged files in IAM dataset - just use black image instead
         if img is None:
             img = np.zeros(self.img_size[::-1])
-
+        size=int(img.shape[0]/10)+1-int((img.shape[0]/10))%2
+        img = cv2.GaussianBlur(img, (size,size),0)
+        img = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,11,2)
         # data augmentation
         img = img.astype(np.float)
         if self.data_augmentation:
+            
+
             # photometric data augmentation
             if random.random() < 0.25:
                 def rand_odd():
@@ -115,6 +121,13 @@ class Preprocessor:
             fx = f * np.random.uniform(0.75, 1.05)
             fy = f * np.random.uniform(0.75, 1.05)
 
+            #add line
+            start_h = img.shape[0] - np.random.random_integers(0,img.shape[0]/3)
+            end_h = img.shape[0] -np.random.random_integers(0,img.shape[0]/3)
+            #draw line from (0,start_h) to (image_len,end_h)
+
+            cv2.line(img,(0,start_h),(img.shape[1],end_h),0,int(img.shape[0]/10)+1)
+
             # random position around center
             txc = (wt - w * fx) / 2
             tyc = (ht - h * fy) / 2
@@ -129,12 +142,12 @@ class Preprocessor:
             img = cv2.warpAffine(img, M, dsize=self.img_size, dst=target, borderMode=cv2.BORDER_TRANSPARENT)
 
             # photometric data augmentation
-            if random.random() < 0.5:
-                img = img * (0.25 + random.random() * 0.75)
-            if random.random() < 0.25:
-                img = np.clip(img + (np.random.random(img.shape) - 0.5) * random.randint(1, 25), 0, 255)
-            if random.random() < 0.1:
-                img = 255 - img
+            #if random.random() < 0.5:
+            #    img = img * (0.25 + random.random() * 0.75)
+            #if random.random() < 0.25:
+            #    img = np.clip(img + (np.random.random(img.shape) - 0.5) * random.randint(1, 25), 0, 255)
+            #if random.random() < 0.1:
+            #    img = 255 - img
 
         # no data augmentation
         else:
@@ -159,6 +172,9 @@ class Preprocessor:
             img = cv2.warpAffine(img, M, dsize=(wt, ht), dst=target, borderMode=cv2.BORDER_TRANSPARENT)
 
         # transpose for TF
+        to_show = img/255
+        #cv2.imshow('img', to_show)
+        #cv2.waitKey(300)
         img = cv2.transpose(img)
 
         # convert to range [-1, 1]
